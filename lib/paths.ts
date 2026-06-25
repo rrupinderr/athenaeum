@@ -42,7 +42,8 @@ export function ensureDir(dir: string): void {
 
 export function readJsonFile<T>(filePath: string): T | null {
   if (!fs.existsSync(filePath)) return null;
-  return JSON.parse(fs.readFileSync(filePath, "utf8")) as T;
+  const raw = fs.readFileSync(filePath, "utf8").replace(/^\uFEFF/, "");
+  return JSON.parse(raw) as T;
 }
 
 export function writeJsonFile(filePath: string, data: unknown): void {

@@ -5,8 +5,11 @@ export interface Episode {
 
 export interface SubtitleInfo {
   has_local: boolean;
+  has_embedded: boolean;
   files: string[];
   languages: string[];
+  embedded_languages: string[];
+  source: "none" | "external" | "embedded" | "both";
 }
 
 export interface MediaTitle {
@@ -69,10 +72,18 @@ export interface LibraryData {
   };
 }
 
+export interface BookBookmark {
+  id: string;
+  label: string;
+  cfi: string;
+  created: string;
+}
+
 export interface LibraryState {
   watched: Record<string, boolean>;
   favorites: Record<string, boolean>;
-  book_progress?: Record<string, { cfi?: string; page?: number; updated: string }>;
+  book_progress?: Record<string, { cfi?: string; page?: number; percent?: number; updated: string }>;
+  bookmarks?: Record<string, BookBookmark[]>;
 }
 
 export interface FilmographyItem {

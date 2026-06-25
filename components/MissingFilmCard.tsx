@@ -1,5 +1,6 @@
 "use client";
 
+import { WebSearchIcon } from "./icons/WebSearchIcon";
 import type { FilmographyItem } from "@/types/library";
 import { playPath, useLibrary } from "./LibraryProvider";
 
@@ -25,24 +26,28 @@ export function MissingFilmCard({ item }: { item: FilmographyItem }) {
     <article
       className={`card-hover relative rounded-xl overflow-hidden border cursor-pointer ${
         item.in_library
-          ? "bg-[var(--surface)] border-[rgba(95,214,138,0.35)]"
-          : "bg-[rgba(20,20,28,0.65)] border-dashed border-[rgba(106,122,142,0.55)] opacity-90 hover:opacity-100 hover:border-[var(--accent2)]"
+          ? "bg-[var(--surface)] border-[rgba(61,158,106,0.35)]"
+          : "bg-[rgba(13,21,38,0.65)] border-dashed border-[var(--missing)] opacity-90 hover:opacity-100 hover:border-[var(--accent2-bright)]"
       }`}
       onClick={handleClick}
       onContextMenu={openTmdb}
+      title={item.in_library ? "Play in VLC" : "Search the web"}
     >
       <span
-        className={`absolute top-2 left-2 z-10 text-[0.58rem] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded-md border bg-[rgba(8,8,12,0.85)] ${
-          item.in_library
-            ? "text-[var(--owned)] border-[rgba(95,214,138,0.4)]"
-            : "text-[var(--missing)] border-[rgba(106,122,142,0.45)]"
+        className={`absolute top-2 left-2 z-10 badge-pill ${
+          item.in_library ? "badge-watched" : "badge-cc-none"
         }`}
       >
-        {item.in_library ? "In library" : "Not in library"}
+        {item.in_library ? "In library" : "Web search"}
       </span>
+      {!item.in_library && (
+        <span className="absolute top-2 right-2 z-10 text-[var(--accent2-bright)]">
+          <WebSearchIcon size={16} />
+        </span>
+      )}
 
       <div
-        className={`aspect-[2/3] bg-gradient-to-br from-[var(--surface2)] to-[#242433] flex items-center justify-center overflow-hidden ${
+        className={`aspect-[2/3] bg-gradient-to-br from-[var(--surface2)] to-[var(--surface3)] flex items-center justify-center overflow-hidden ${
           !item.in_library ? "grayscale-[0.85] brightness-[0.72]" : ""
         }`}
       >

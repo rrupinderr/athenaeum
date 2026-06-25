@@ -9,7 +9,14 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { LibraryData } from "@/types/library";
+import type { BookBookmark, LibraryData, SubtitleInfo } from "@/types/library";
+
+export interface BookProgressEntry {
+  cfi?: string;
+  page?: number;
+  percent?: number;
+  updated: string;
+}
 
 interface LibraryContextValue {
   library: LibraryData | null;
@@ -17,9 +24,13 @@ interface LibraryContextValue {
   error: string | null;
   watched: Set<string>;
   favorites: Set<string>;
+  bookProgress: Record<string, BookProgressEntry>;
+  bookmarks: Record<string, BookBookmark[]>;
+  subtitleOverrides: Record<string, SubtitleInfo>;
   refreshLibrary: () => Promise<void>;
   toggleWatched: (id: string) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
+  setSubtitleOverride: (id: string, info: SubtitleInfo) => void;
   toast: (msg: string, kind?: "ok" | "err") => void;
   toastMsg: string | null;
   toastKind: "ok" | "err";
@@ -34,6 +45,9 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [watched, setWatched] = useState<Set<string>>(new Set());
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [bookProgress, setBookProgress] = useState<Record<string, BookProgressEntry>>({});
+  const [bookmarks, setBookmarks] = useState<Record<string, BookBookmark[]>>({});
+  const [subtitleOverrides, setSubtitleOverrides] = useState<Record<string, SubtitleInfo>>({});
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const [toastKind, setToastKind] = useState<"ok" | "err">("ok");
 
@@ -51,6 +65,8 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     const data = await res.json();
     setWatched(new Set(data.watched || []));
     setFavorites(new Set(data.favorites || []));
+    setBookProgress(data.book_progress || {});
+    setBookmarks(data.bookmarks || {});
   }, []);
 
   const refreshLibrary = useCallback(async () => {
@@ -72,41 +88,37 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     refreshLibrary();
   }, [refreshLibrary]);
 
-  const toggleWatched = useCallback(
-    async (id: string) => {
-      const next = !watched.has(id);
-      setWatched((prev) => {
-        const s = new Set(prev);
-        if (next) s.add(id);
-        else s.delete(id);
-        return s;
-      });
-      await fetch("/api/state", {
+  const toggleWatched = useCallback(async (id: string) => {
+    setWatched((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      fetch("/api/state", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, watched: next }),
+        body: JSON.stringify({ id, watched: s.has(id) }),
       });
-    },
-    [watched]
-  );
+      return s;
+    });
+  }, []);
 
-  const toggleFavorite = useCallback(
-    async (id: string) => {
-      const next = !favorites.has(id);
-      setFavorites((prev) => {
-        const s = new Set(prev);
-        if (next) s.add(id);
-        else s.delete(id);
-        return s;
-      });
-      await fetch("/api/state", {
+  const toggleFavorite = useCallback(async (id: string) => {
+    setFavorites((prev) => {
+      const s = new Set(prev);
+      if (s.has(id)) s.delete(id);
+      else s.add(id);
+      fetch("/api/state", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id, favorite: next }),
+        body: JSON.stringify({ id, favorite: s.has(id) }),
       });
-    },
-    [favorites]
-  );
+      return s;
+    });
+  }, []);
+
+  const setSubtitleOverride = useCallback((id: string, info: SubtitleInfo) => {
+    setSubtitleOverrides((prev) => ({ ...prev, [id]: info }));
+  }, []);
 
   const value = useMemo(
     () => ({
@@ -115,9 +127,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       error,
       watched,
       favorites,
+      bookProgress,
+      bookmarks,
+      subtitleOverrides,
       refreshLibrary,
       toggleWatched,
       toggleFavorite,
+      setSubtitleOverride,
       toast,
       toastMsg,
       toastKind,
@@ -129,9 +145,13 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       error,
       watched,
       favorites,
+      bookProgress,
+      bookmarks,
+      subtitleOverrides,
       refreshLibrary,
       toggleWatched,
       toggleFavorite,
+      setSubtitleOverride,
       toast,
       toastMsg,
       toastKind,

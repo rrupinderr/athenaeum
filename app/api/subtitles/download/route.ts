@@ -11,7 +11,16 @@ export async function POST(req: NextRequest) {
   try {
     const result = await runPowerShellJson<{ ok: boolean; destPath?: string; error?: string }>(
       getScriptPath("Invoke-SubtitleApi.ps1"),
-      ["-Action", "Download", "-MoviePath", moviePath, "-FileId", String(fileId)]
+      [
+        "-Action",
+        "Download",
+        "-MoviePath",
+        moviePath,
+        "-FileId",
+        String(fileId),
+        "-Language",
+        (body.language as string) || "en",
+      ]
     );
     return NextResponse.json(result);
   } catch (e) {

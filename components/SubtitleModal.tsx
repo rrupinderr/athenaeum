@@ -1,25 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { SubtitleRow } from "@/types/library";
+import type { SubtitleInfo, SubtitleRow } from "@/types/library";
 
 export function SubtitleModal({
   title,
   videoPath,
-  hasLocal,
+  subtitles,
   onClose,
   onDownloaded,
 }: {
   title: string;
+  titleId?: string;
   videoPath: string;
-  hasLocal: boolean;
+  subtitles: SubtitleInfo;
   onClose: () => void;
-  onDownloaded: () => void;
+  onDownloaded: (info: SubtitleInfo, destPath: string) => void;
 }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [rows, setRows] = useState<SubtitleRow[]>([]);
   const [downloading, setDownloading] = useState<number | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  const statusParts: string[] = [];
+  if (subtitles.has_local && subtitles.languages.length) statusParts.push(`External: ${subtitles.languages.join(", ")}`);
+  if (subtitles.has_embedded && subtitles.embedded_languages?.length)
+    statusParts.push(`Embedded: ${subtitles.embedded_languages.join(", ")}`);
+  const statusText = statusParts.length ? statusParts.join(" · ") : "No subtitles yet";
 
   useEffect(() => {
     let cancelled = false;
@@ -48,6 +56,7 @@ export function SubtitleModal({
 
   async function download(row: SubtitleRow) {
     setDownloading(row.fileId);
+    setError(null);
     try {
       const res = await fetch("/api/subtitles/download", {
         method: "POST",
@@ -56,8 +65,20 @@ export function SubtitleModal({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Download failed");
-      onDownloaded();
-      onClose();
+
+      const localRes = await fetch(`/api/subtitles/local?path=${encodeURIComponent(videoPath)}`);
+      const localInfo = (await localRes.json()) as SubtitleInfo;
+      const merged: SubtitleInfo = {
+        has_local: localInfo.has_local || true,
+        has_embedded: subtitles.has_embedded,
+        files: localInfo.files,
+        languages: localInfo.languages,
+        embedded_languages: subtitles.embedded_languages || [],
+        source: subtitles.has_embedded ? "both" : "external",
+      };
+      setSuccess(data.destPath || "Subtitle saved");
+      onDownloaded(merged, data.destPath || "");
+      setTimeout(onClose, 1200);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Download failed");
     } finally {
@@ -74,16 +95,19 @@ export function SubtitleModal({
         <div className="px-5 py-4 border-b border-[var(--border)] flex justify-between items-start gap-4">
           <div>
             <h2 className="font-semibold">Subtitles — {title}</h2>
-            <p className="text-xs text-[var(--muted)] mt-1">
-              {hasLocal ? "Local subtitles found" : "No local .srt yet"} · OpenSubtitles search
-            </p>
+            <p className="text-xs text-[var(--muted)] mt-1">{statusText} · OpenSubtitles</p>
           </div>
-          <button type="button" className="text-[var(--muted)]" onClick={onClose}>
+          <button type="button" className="text-[var(--muted)] hover:text-[var(--text)]" onClick={onClose}>
             ✕
           </button>
         </div>
 
         <div className="flex-1 overflow-y-auto p-4">
+          {success && (
+            <p className="text-sm text-[var(--owned)] bg-[rgba(61,158,106,0.12)] border border-[rgba(61,158,106,0.35)] rounded-lg p-3 mb-3">
+              Downloaded: {success.split("\\").pop()}
+            </p>
+          )}
           {loading && <p className="text-sm text-[var(--muted)]">Searching…</p>}
           {error && (
             <p className="text-sm text-red-300 bg-red-950/40 border border-red-900 rounded-lg p-3">
@@ -94,7 +118,7 @@ export function SubtitleModal({
             </p>
           )}
           {!loading && !error && rows.length === 0 && (
-            <p className="text-sm text-[var(--muted)]">No subtitles found.</p>
+            <p className="text-sm text-[var(--muted)]">No subtitles found on OpenSubtitles.</p>
           )}
           <ul className="space-y-2">
             {rows.map((row) => (
@@ -112,10 +136,10 @@ export function SubtitleModal({
                 <button
                   type="button"
                   disabled={downloading === row.fileId}
-                  className="shrink-0 px-3 py-1.5 rounded-lg bg-[var(--accent)] text-black text-xs font-bold disabled:opacity-50"
+                  className="shrink-0 px-3 py-1.5 rounded-lg bg-[var(--accent)] text-white text-xs font-bold disabled:opacity-50"
                   onClick={() => download(row)}
                 >
-                  {downloading === row.fileId ? "…" : "Get"}
+                  {downloading === row.fileId ? "…" : "Download .srt"}
                 </button>
               </li>
             ))}

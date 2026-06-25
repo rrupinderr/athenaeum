@@ -7,6 +7,7 @@ export async function GET() {
     watched: Object.keys(state.watched),
     favorites: Object.keys(state.favorites),
     book_progress: state.book_progress || {},
+    bookmarks: state.bookmarks || {},
   });
 }
 
@@ -27,6 +28,16 @@ export async function POST(req: NextRequest) {
   if (body.book_progress !== undefined) {
     current.book_progress = current.book_progress || {};
     current.book_progress[id] = body.book_progress;
+  }
+  if (body.bookmark_action === "add" && body.bookmark) {
+    current.bookmarks = current.bookmarks || {};
+    const list = current.bookmarks[id] || [];
+    list.push(body.bookmark);
+    current.bookmarks[id] = list;
+  }
+  if (body.bookmark_action === "remove" && body.bookmark_id) {
+    current.bookmarks = current.bookmarks || {};
+    current.bookmarks[id] = (current.bookmarks[id] || []).filter((b) => b.id !== body.bookmark_id);
   }
   patchState(current);
   return NextResponse.json({ ok: true });

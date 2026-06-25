@@ -2,7 +2,10 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { WebSearchIcon } from "./icons/WebSearchIcon";
 import { useLibrary } from "./LibraryProvider";
+import type { StateFilter, TypeFilter } from "@/lib/filters";
+import { buildWebSearchUrl } from "@/lib/web-search";
 
 const tabs = [
   { href: "/directors", label: "Directors" },
@@ -16,21 +19,33 @@ export function LibraryShell({
   onSearchChange,
   stateFilter,
   onStateFilterChange,
+  typeFilter,
+  onTypeFilterChange,
+  showTypeFilter = false,
 }: {
   children: React.ReactNode;
   search?: string;
   onSearchChange?: (v: string) => void;
-  stateFilter?: "all" | "watched" | "favorites";
-  onStateFilterChange?: (v: "all" | "watched" | "favorites") => void;
+  stateFilter?: StateFilter;
+  onStateFilterChange?: (v: StateFilter) => void;
+  typeFilter?: TypeFilter;
+  onTypeFilterChange?: (v: TypeFilter) => void;
+  showTypeFilter?: boolean;
 }) {
   const pathname = usePathname();
   const { library, loading, error, toastMsg, toastKind, clearToast } = useLibrary();
 
+  function openWebSearch() {
+    const q = search?.trim();
+    if (!q) return;
+    window.open(buildWebSearchUrl(q, null, "movie"), "_blank", "noopener,noreferrer");
+  }
+
   return (
     <div className="min-h-screen flex flex-col">
-      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[rgba(8,8,12,0.88)] backdrop-blur-xl px-6 py-3 flex flex-wrap items-center gap-3">
+      <header className="sticky top-0 z-50 border-b border-[var(--border)] bg-[rgba(7,11,20,0.92)] backdrop-blur-xl px-6 py-3 flex flex-wrap items-center gap-3">
         <div className="mr-auto flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--accent)] to-[#a67c2e] flex items-center justify-center text-sm font-bold text-black">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[var(--accent)] to-[var(--accent2)] flex items-center justify-center text-sm font-bold text-white">
             A
           </div>
           <div>
@@ -50,8 +65,8 @@ export function LibraryShell({
               href={t.href}
               className={`px-3.5 py-2 rounded-full text-sm border transition-colors ${
                 pathname.startsWith(t.href)
-                  ? "bg-[var(--accent)] text-black border-[var(--accent)] font-bold"
-                  : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--muted)]"
+                  ? "bg-[var(--accent)] text-white border-[var(--accent)] font-bold"
+                  : "border-[var(--border)] text-[var(--muted)] hover:text-[var(--text)] hover:border-[var(--accent2-bright)]"
               }`}
             >
               {t.label}
@@ -60,16 +75,47 @@ export function LibraryShell({
         </nav>
 
         {onSearchChange && (
-          <input
-            type="search"
-            placeholder="Search…"
-            value={search || ""}
-            onChange={(e) => onSearchChange(e.target.value)}
-            className="px-3 py-2 pl-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm w-64 max-w-full bg-[url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2716%27 height=%2716%27 fill=%27%237c7c8e%27 viewBox=%270 0 16 16%27%3E%3Cpath d=%27M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85zm-5.242 1.006a5 5 0 1 1 0-10 5 5 0 0 1 0 10z%27/%3E%3C/svg%3E')] bg-no-repeat bg-[length:16px] bg-[position:12px_center]"
-          />
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              placeholder="Search library…"
+              value={search || ""}
+              onChange={(e) => onSearchChange(e.target.value)}
+              className="px-3 py-2 pl-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm w-64 max-w-full text-[var(--text)]"
+            />
+            <button
+              type="button"
+              title="Search the web"
+              aria-label="Search the web"
+              disabled={!search?.trim()}
+              onClick={openWebSearch}
+              className="p-2 rounded-lg border border-[var(--border)] text-[var(--accent2-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              <WebSearchIcon size={18} />
+            </button>
+          </div>
         )}
 
-        {onStateFilterChange && pathname !== "/books" && (
+        {showTypeFilter && onTypeFilterChange && (
+          <div className="flex gap-1.5">
+            {(["all", "movie", "tv"] as const).map((f) => (
+              <button
+                key={f}
+                type="button"
+                onClick={() => onTypeFilterChange(f)}
+                className={`px-3 py-1.5 rounded-full text-xs border capitalize ${
+                  typeFilter === f
+                    ? "border-[var(--accent2-bright)] bg-[var(--surface2)] text-[var(--text)]"
+                    : "border-[var(--border)] text-[var(--muted)]"
+                }`}
+              >
+                {f === "all" ? "All" : f === "movie" ? "Movies" : "TV"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {onStateFilterChange && (
           <div className="flex gap-1.5">
             {(["all", "watched", "favorites"] as const).map((f) => (
               <button
@@ -78,7 +124,7 @@ export function LibraryShell({
                 onClick={() => onStateFilterChange(f)}
                 className={`px-3 py-1.5 rounded-full text-xs border capitalize ${
                   stateFilter === f
-                    ? "border-[#a67c2e] bg-[var(--surface2)] text-[var(--text)]"
+                    ? "border-[var(--accent)] bg-[var(--surface2)] text-[var(--text)]"
                     : "border-[var(--border)] text-[var(--muted)]"
                 }`}
               >
@@ -90,7 +136,7 @@ export function LibraryShell({
       </header>
 
       {error && (
-        <div className="bg-amber-950/40 border-b border-amber-800/50 text-amber-200 text-sm px-6 py-2 text-center">
+        <div className="bg-red-950/40 border-b border-red-900/50 text-red-200 text-sm px-6 py-2 text-center">
           {error}
         </div>
       )}

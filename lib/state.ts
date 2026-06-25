@@ -1,8 +1,7 @@
 import { getStatePath, readJsonFile, writeJsonFile } from "./paths";
 import type { LibraryState } from "@/types/library";
 
-const empty: LibraryState = { watched: {}, favorites: {}, book_progress: {} };
-
+const empty: LibraryState = { watched: {}, favorites: {}, book_progress: {}, bookmarks: {} };
 export function loadState(): LibraryState {
   const s = readJsonFile<LibraryState>(getStatePath());
   if (!s) return { ...empty };
@@ -10,6 +9,7 @@ export function loadState(): LibraryState {
     watched: s.watched || {},
     favorites: s.favorites || {},
     book_progress: s.book_progress || {},
+    bookmarks: s.bookmarks || {},
   };
 }
 
