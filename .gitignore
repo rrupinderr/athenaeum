@@ -1,0 +1,13 @@
+/node_modules
+/.next
+/out
+.env.local
+.env*.local
+*.log
+data/library.json
+data/directors.json
+data/directors-unmatched.json
+data/directors-cache.json
+data/directors-people-cache.json
+data/.library-state.json
+data/covers/
