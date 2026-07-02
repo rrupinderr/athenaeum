@@ -102,7 +102,7 @@ export function SubtitleModal({
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-4">
+        <div className="custom-scrollbar flex-1 overflow-y-auto p-4">
           {success && (
             <p className="text-sm text-[var(--owned)] bg-[rgba(61,158,106,0.12)] border border-[rgba(61,158,106,0.35)] rounded-lg p-3 mb-3">
               Downloaded: {success.split("\\").pop()}

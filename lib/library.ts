@@ -1,5 +1,5 @@
 import fs from "fs";
-import { getLibraryPath } from "./paths";
+import { getLibraryPath, readJsonFile } from "./paths";
 import type { LibraryData } from "@/types/library";
 
 let cache: { data: LibraryData; mtime: number } | null = null;
@@ -11,7 +11,10 @@ export function loadLibrary(): LibraryData {
   }
   const stat = fs.statSync(p);
   if (cache && cache.mtime === stat.mtimeMs) return cache.data;
-  const data = JSON.parse(fs.readFileSync(p, "utf8")) as LibraryData;
+  const data = readJsonFile<LibraryData>(p);
+  if (!data) {
+    throw new Error(`library.json is empty or invalid at ${p}.`);
+  }
   cache = { data, mtime: stat.mtimeMs };
   return data;
 }

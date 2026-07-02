@@ -26,6 +26,7 @@ export interface MediaTitle {
   canonical_path: string;
   folder_name: string;
   video_path?: string | null;
+  parts?: Episode[];
   episodes?: Episode[];
   subtitles?: SubtitleInfo;
   tmdb_id?: number | null;
@@ -84,6 +85,16 @@ export interface LibraryState {
   favorites: Record<string, boolean>;
   book_progress?: Record<string, { cfi?: string; page?: number; percent?: number; updated: string }>;
   bookmarks?: Record<string, BookBookmark[]>;
+}
+
+export interface TmdbSearchResult {
+  tmdb_id: number;
+  title: string;
+  year?: number | null;
+  type: "movie" | "tv";
+  poster?: string | null;
+  overview?: string | null;
+  vote_average?: number | null;
 }
 
 export interface FilmographyItem {

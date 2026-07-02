@@ -31,7 +31,7 @@ export default function EpubReaderClient({
 }) {
   const [location, setLocation] = useState<string | number>(0);
   const [fontSize, setFontSize] = useState<FontSize>("md");
-  const [theme, setTheme] = useState<Theme>("dark");
+  const [theme, setTheme] = useState<Theme>("light");
   const [showSettings, setShowSettings] = useState(false);
   const [showBookmarks, setShowBookmarks] = useState(false);
   const [bookmarks, setBookmarks] = useState<BookBookmark[]>([]);
@@ -183,7 +183,7 @@ export default function EpubReaderClient({
       )}
 
       {showBookmarks && (
-        <div className="reader-panel px-4 py-2 max-h-40 overflow-y-auto border-b border-[var(--border)]">
+        <div className="reader-panel custom-scrollbar px-4 py-2 max-h-40 overflow-y-auto border-b border-[var(--border)]">
           {bookmarks.length === 0 ? (
             <p className="text-xs text-[var(--muted)]">No bookmarks yet.</p>
           ) : (

@@ -1,185 +1,490 @@
 "use client";
 
+
+
+import Link from "next/link";
+
+import { useRouter } from "next/navigation";
+
 import { useState } from "react";
+
 import type { MediaTitle, SubtitleInfo } from "@/types/library";
-import { WebSearchIcon } from "./icons/WebSearchIcon";
-import { explorePath, playPath, useLibrary } from "./LibraryProvider";
-import { EpisodeModal } from "./EpisodeModal";
+
+import { CardHoverInfo } from "./CardHoverInfo";
+
+import { CardPosterOverlay } from "./CardPosterOverlay";
+
+import { DirectorFilmPeek } from "./DirectorFilmPeek";
+
+import { deleteMedia, explorePath, playPath, useLibrary } from "./LibraryProvider";
+
 import { SubtitleModal } from "./SubtitleModal";
-import { StatusBadges } from "./StatusBadges";
+
+import { isMultiPartMovie } from "@/lib/collection";
 import { openWebSearch } from "@/lib/web-search";
 
+import { isTvSeries, seriesProgress } from "@/lib/series";
+
+import { useCastDiscover } from "./useCastDiscover";
+import { useTmdbCredits } from "./useTmdbCredits";
+
+
+
 function normalizeSubs(sub?: SubtitleInfo): SubtitleInfo {
+
   if (!sub) {
+
     return { has_local: false, has_embedded: false, files: [], languages: [], embedded_languages: [], source: "none" };
+
   }
+
   const hasLocal = sub.has_local ?? false;
+
   const hasEmbedded = sub.has_embedded ?? false;
+
   let source = sub.source;
+
   if (!source) {
+
     if (hasLocal && hasEmbedded) source = "both";
+
     else if (hasLocal) source = "external";
+
     else if (hasEmbedded) source = "embedded";
+
     else source = "none";
+
   }
+
   return {
+
     has_local: hasLocal,
+
     has_embedded: hasEmbedded,
+
     files: sub.files || [],
+
     languages: sub.languages || [],
+
     embedded_languages: sub.embedded_languages || [],
+
     source,
+
   };
+
 }
+
+
 
 function getSubtitles(title: MediaTitle, overrides: Record<string, SubtitleInfo>): SubtitleInfo {
+
   const base = normalizeSubs(title.subtitles);
+
   const patch = overrides[title.id];
+
   if (!patch) return base;
+
   const hasLocal = base.has_local || patch.has_local;
+
   const hasEmbedded = base.has_embedded || patch.has_embedded;
+
   let source: SubtitleInfo["source"] = "none";
+
   if (hasLocal && hasEmbedded) source = "both";
+
   else if (hasLocal) source = "external";
+
   else if (hasEmbedded) source = "embedded";
+
   return {
+
     has_local: hasLocal,
+
     has_embedded: hasEmbedded,
+
     files: patch.files.length ? patch.files : base.files,
+
     languages: patch.languages.length ? patch.languages : base.languages,
+
     embedded_languages: base.embedded_languages?.length ? base.embedded_languages : patch.embedded_languages,
+
     source,
+
   };
+
 }
+
+
+
+function cardBorderClass(allWatched: boolean, anyFavorite: boolean, isWatched: boolean, isFav: boolean): string {
+
+  const watched = allWatched || isWatched;
+
+  const fav = anyFavorite || isFav;
+
+  if (watched && fav) return "card-watched card-favorite";
+
+  if (watched) return "card-watched";
+
+  if (fav) return "card-favorite";
+
+  return "border-transparent hover:border-[var(--border)]";
+
+}
+
+
 
 export function MediaCard({ title }: { title: MediaTitle }) {
-  const { watched, favorites, toggleWatched, toggleFavorite, subtitleOverrides, setSubtitleOverride, toast } =
-    useLibrary();
-  const [episodeOpen, setEpisodeOpen] = useState(false);
+
+  const router = useRouter();
+
+  const {
+
+    library,
+
+    watched,
+
+    favorites,
+
+    toggleWatched,
+
+    toggleFavorite,
+
+    subtitleOverrides,
+
+    setSubtitleOverride,
+
+    refreshLibrary,
+
+    toast,
+
+  } = useLibrary();
+
+  const { onCastClick } = useCastDiscover();
+
   const [subtitleOpen, setSubtitleOpen] = useState(false);
 
-  const isWatched = watched.has(title.id);
-  const isFav = favorites.has(title.id);
+  const [hovered, setHovered] = useState(false);
+
+  const [directorPeek, setDirectorPeek] = useState<string | null>(null);
+
+  const credits = useTmdbCredits(title.tmdb_id ?? 0, title.type, hovered && !!title.tmdb_id);
+
+  const hoverDirectors = title.directors?.length ? title.directors : credits?.directors;
+
+
+
+  const tv = isTvSeries(title);
+
+  const progress = tv ? seriesProgress(title, watched, favorites) : null;
+
+  const isWatched = tv ? progress!.allWatched : watched.has(title.id);
+
+  const isFav = tv ? progress!.anyFavorite : favorites.has(title.id);
+
   const subs = getSubtitles(title, subtitleOverrides);
-  const videoPath = title.video_path || title.episodes?.[0]?.path || title.canonical_path;
+
+  const videoPath = title.video_path || title.parts?.[0]?.path || title.episodes?.[0]?.path || title.canonical_path;
+
+  const borderClass = cardBorderClass(
+
+    progress?.allWatched ?? false,
+
+    progress?.anyFavorite ?? false,
+
+    watched.has(title.id),
+
+    favorites.has(title.id)
+
+  );
+
+  const multiPart = isMultiPartMovie(title);
 
   async function handlePlay() {
-    if (title.type === "tv" && title.episodes && title.episodes.length > 1) {
-      setEpisodeOpen(true);
+    if (multiPart) {
+      router.push(`/movies/${encodeURIComponent(title.id)}`);
       return;
     }
-    const path = title.video_path || title.episodes?.[0]?.path;
+
+    const path = title.video_path || title.parts?.[0]?.path || title.episodes?.[0]?.path;
+
     if (!path) {
+
       toast("No video file found", "err");
+
       return;
+
     }
+
     const r = await playPath(path);
+
     if (r.ok) toast("Opening in VLC…");
+
     else toast(r.error || "Playback failed", "err");
+
   }
 
-  return (
-    <>
-      <article
-        className={`group card-hover relative bg-[var(--surface)] rounded-xl overflow-hidden border cursor-pointer ${
-          isFav ? "border-[rgba(224,69,106,0.4)]" : "border-transparent hover:border-[var(--border)]"
-        }`}
-        onClick={handlePlay}
-      >
-        <div className="absolute top-2 left-2 z-10 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button
-            type="button"
-            className={`w-7 h-7 rounded-lg border text-xs bg-[rgba(7,11,20,0.9)] ${
-              isWatched ? "text-[var(--owned)] border-[rgba(61,158,106,0.45)]" : "text-[var(--muted)] border-white/10"
-            }`}
-            title="Mark watched"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleWatched(title.id);
-            }}
-          >
-            ✓
-          </button>
-          <button
-            type="button"
-            className={`w-7 h-7 rounded-lg border text-xs bg-[rgba(7,11,20,0.9)] ${
-              isFav ? "text-[var(--fav)] border-[rgba(224,69,106,0.45)]" : "text-[var(--muted)] border-white/10"
-            }`}
-            title="Favorite"
-            onClick={(e) => {
-              e.stopPropagation();
-              toggleFavorite(title.id);
-            }}
-          >
-            ★
-          </button>
-          <button
-            type="button"
-            className="w-7 h-7 rounded-lg border text-xs bg-[rgba(7,11,20,0.9)] text-[var(--accent2-bright)] border-white/10 hover:text-[var(--accent)] flex items-center justify-center"
-            title="Search the web"
-            onClick={(e) => {
-              e.stopPropagation();
-              openWebSearch(title.title, title.year, title.type);
-            }}
-          >
-            <WebSearchIcon size={14} />
-          </button>
-          <button
-            type="button"
-            className="w-7 h-7 rounded-lg border text-xs bg-[rgba(7,11,20,0.9)] text-[var(--muted)] border-white/10"
-            title="Open folder"
-            onClick={(e) => {
-              e.stopPropagation();
-              explorePath(title.canonical_path);
-            }}
-          >
-            📁
-          </button>
-        </div>
 
-        <StatusBadges
-          watched={isWatched}
-          favorite={isFav}
-          subtitles={subs}
-          onSubtitleClick={() => setSubtitleOpen(true)}
+
+  async function handleDelete() {
+
+    const label = title.match_title || title.title;
+
+    const msg = tv
+
+      ? `Delete "${label}" and its entire TV folder from disk? This cannot be undone.`
+
+      : `Delete "${label}" and its folder from disk? This cannot be undone.`;
+
+    if (!window.confirm(msg)) return;
+
+
+
+    const episodePaths =
+      title.episodes?.map((e) => e.path) || title.parts?.map((p) => p.path) || [];
+
+    const r = await deleteMedia(title.id, episodePaths);
+
+    if (!r.ok) {
+
+      toast(r.error || "Delete failed", "err");
+
+      return;
+
+    }
+
+    toast("Deleted from library");
+
+    if (tv) router.push("/directors");
+
+    await refreshLibrary();
+
+  }
+
+
+
+  function handleDirectorClick(name: string) {
+
+    setDirectorPeek((prev) => (prev === name ? null : name));
+
+  }
+
+
+
+  const poster = (
+
+    <div
+
+      className="relative group/poster aspect-[2/3] bg-gradient-to-br from-[var(--surface2)] to-[var(--surface3)] flex items-center justify-center overflow-hidden"
+
+      onMouseEnter={() => setHovered(true)}
+
+      onMouseLeave={() => {
+
+        if (!directorPeek) setHovered(false);
+
+      }}
+
+    >
+
+      <CardPosterOverlay
+
+        watched={isWatched}
+
+        favorite={isFav}
+
+        subtitles={subs}
+
+        hideToggles={tv}
+
+        tvProgress={tv && progress ? { watched: progress.watchedCount, total: progress.total } : undefined}
+
+        onToggleWatched={tv ? undefined : () => toggleWatched(title.id)}
+
+        onToggleFavorite={tv ? undefined : () => toggleFavorite(title.id)}
+
+        onSubtitleClick={() => setSubtitleOpen(true)}
+
+        onWebSearch={() => openWebSearch(title.title, title.year, title.type)}
+
+        onExplore={() => explorePath(title.canonical_path)}
+
+        onDelete={handleDelete}
+
+      />
+
+      {title.poster ? (
+
+        // eslint-disable-next-line @next/next/no-img-element
+
+        <img src={title.poster} alt="" className="w-full h-full object-cover" loading="lazy" />
+
+      ) : (
+
+        <span className="text-3xl opacity-30 text-[var(--muted)]">🎬</span>
+
+      )}
+
+      <CardHoverInfo
+
+        directors={hoverDirectors}
+
+        cast={credits?.cast}
+
+        genres={title.genres}
+
+        onDirectorClick={library ? handleDirectorClick : undefined}
+
+        onCastClick={onCastClick}
+
+        activeDirector={directorPeek}
+
+        reserveToolbar
+
+      />
+
+      {directorPeek && library && (
+
+        <DirectorFilmPeek
+
+          director={directorPeek}
+
+          currentId={title.id}
+
+          library={library}
+
+          onClose={() => {
+
+            setDirectorPeek(null);
+
+            setHovered(false);
+
+          }}
+
         />
 
-        <div className="aspect-[2/3] bg-gradient-to-br from-[var(--surface2)] to-[var(--surface3)] flex items-center justify-center overflow-hidden">
-          {title.poster ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={title.poster} alt="" className="w-full h-full object-cover" loading="lazy" />
-          ) : (
-            <span className="text-3xl opacity-30 text-[var(--muted)]">🎬</span>
-          )}
-        </div>
+      )}
 
-        <div className="p-3">
-          <h3 className="text-sm font-semibold leading-snug line-clamp-2">{title.title}</h3>
-          <p className="text-xs text-[var(--muted)] mt-1 flex items-center gap-1.5 flex-wrap">
-            {title.year || "—"}
-            {title.type === "tv" && <span className="chip-tv">TV</span>}
-            {title.vote_average ? <span>· ★ {title.vote_average.toFixed(1)}</span> : null}
-          </p>
-        </div>
+    </div>
+
+  );
+
+
+
+  const meta = (
+
+    <div className="p-3">
+
+      <h3 className="text-sm font-semibold leading-snug line-clamp-2">{title.title}</h3>
+
+      <p className="text-xs text-[var(--muted)] mt-1 flex items-center gap-1.5 flex-wrap">
+
+        {title.year || "—"}
+
+        {title.type === "tv" && <span className="chip-tv">TV</span>}
+
+        {title.vote_average ? <span>· ★ {title.vote_average.toFixed(1)}</span> : null}
+
+      </p>
+
+    </div>
+
+  );
+
+
+
+  const subtitleModal = subtitleOpen && (
+
+    <SubtitleModal
+
+      title={title.title}
+
+      titleId={title.id}
+
+      videoPath={videoPath}
+
+      subtitles={subs}
+
+      onClose={() => setSubtitleOpen(false)}
+
+      onDownloaded={(info, destPath) => {
+
+        setSubtitleOverride(title.id, info);
+
+        toast(`Saved: ${destPath.split("\\").pop() || "subtitle"}`);
+
+      }}
+
+    />
+
+  );
+
+
+
+  if (tv) {
+
+    return (
+
+      <>
+
+        <Link
+
+          href={`/tv/${encodeURIComponent(title.id)}`}
+
+          className={`group card-hover block relative bg-[var(--surface)] rounded-xl overflow-hidden border ${borderClass}`}
+
+          onClick={(e) => {
+
+            if (directorPeek) e.preventDefault();
+
+          }}
+
+        >
+
+          {poster}
+
+          {meta}
+
+        </Link>
+
+        {subtitleModal}
+
+      </>
+
+    );
+
+  }
+
+
+
+  return (
+
+    <>
+
+      <article
+
+        className={`group card-hover relative bg-[var(--surface)] rounded-xl overflow-hidden border cursor-pointer ${borderClass}`}
+
+        onClick={() => {
+
+          if (!directorPeek) handlePlay();
+
+        }}
+
+      >
+
+        {poster}
+
+        {meta}
+
       </article>
 
-      {episodeOpen && title.episodes && (
-        <EpisodeModal title={title.title} episodes={title.episodes} onClose={() => setEpisodeOpen(false)} />
-      )}
+      {subtitleModal}
 
-      {subtitleOpen && (
-        <SubtitleModal
-          title={title.title}
-          titleId={title.id}
-          videoPath={videoPath}
-          subtitles={subs}
-          onClose={() => setSubtitleOpen(false)}
-          onDownloaded={(info, destPath) => {
-            setSubtitleOverride(title.id, info);
-            toast(`Saved: ${destPath.split("\\").pop() || "subtitle"}`);
-          }}
-        />
-      )}
     </>
+
   );
+
 }
+
+

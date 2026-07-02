@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { WebSearchIcon } from "./icons/WebSearchIcon";
 import { useLibrary } from "./LibraryProvider";
+import { DiscoverProvider, useDiscover } from "./DiscoverContext";
+import { DiscoverPanel } from "./DiscoverPanel";
 import type { StateFilter, TypeFilter } from "@/lib/filters";
 import { buildWebSearchUrl } from "@/lib/web-search";
 
@@ -13,10 +15,11 @@ const tabs = [
   { href: "/books", label: "Books" },
 ];
 
-export function LibraryShell({
+function LibraryShellInner({
   children,
   search,
   onSearchChange,
+  searchPlaceholder = "Search library…",
   stateFilter,
   onStateFilterChange,
   typeFilter,
@@ -26,6 +29,7 @@ export function LibraryShell({
   children: React.ReactNode;
   search?: string;
   onSearchChange?: (v: string) => void;
+  searchPlaceholder?: string;
   stateFilter?: StateFilter;
   onStateFilterChange?: (v: StateFilter) => void;
   typeFilter?: TypeFilter;
@@ -34,11 +38,17 @@ export function LibraryShell({
 }) {
   const pathname = usePathname();
   const { library, loading, error, toastMsg, toastKind, clearToast } = useLibrary();
+  const { discoverOpen, discoverQuery, openDiscover, closeDiscover } = useDiscover();
+  const isBooks = pathname.startsWith("/books");
 
-  function openWebSearch() {
+  function handleDiscoverClick() {
     const q = search?.trim();
     if (!q) return;
-    window.open(buildWebSearchUrl(q, null, "movie"), "_blank", "noopener,noreferrer");
+    if (isBooks) {
+      window.open(buildWebSearchUrl(q, null, "book"), "_blank", "noopener,noreferrer");
+      return;
+    }
+    openDiscover(q);
   }
 
   return (
@@ -78,18 +88,29 @@ export function LibraryShell({
           <div className="flex items-center gap-2">
             <input
               type="search"
-              placeholder="Search library…"
+              placeholder={searchPlaceholder}
               value={search || ""}
               onChange={(e) => onSearchChange(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key !== "Enter" || isBooks) return;
+                e.preventDefault();
+                const q = search?.trim();
+                if (!q) return;
+                openDiscover(q);
+              }}
               className="px-3 py-2 pl-9 rounded-lg border border-[var(--border)] bg-[var(--surface)] text-sm w-64 max-w-full text-[var(--text)]"
             />
             <button
               type="button"
-              title="Search the web"
-              aria-label="Search the web"
+              title={isBooks ? "Search the web" : "Discover on TMDB"}
+              aria-label={isBooks ? "Search the web" : "Discover on TMDB"}
               disabled={!search?.trim()}
-              onClick={openWebSearch}
-              className="p-2 rounded-lg border border-[var(--border)] text-[var(--accent2-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              onClick={handleDiscoverClick}
+              className={`p-2 rounded-lg border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                discoverOpen && !isBooks
+                  ? "border-[var(--accent)] text-[var(--accent)] bg-[rgba(196,30,58,0.12)]"
+                  : "border-[var(--border)] text-[var(--accent2-bright)] hover:text-[var(--accent)] hover:border-[var(--accent)]"
+              }`}
             >
               <WebSearchIcon size={18} />
             </button>
@@ -147,6 +168,15 @@ export function LibraryShell({
         </div>
       )}
 
+      {library && discoverOpen && !isBooks && (
+        <DiscoverPanel
+          query={discoverQuery || search || ""}
+          typeFilter={typeFilter}
+          stateFilter={stateFilter}
+          onClose={closeDiscover}
+        />
+      )}
+
       {library && children}
 
       {toastMsg && (
@@ -163,5 +193,13 @@ export function LibraryShell({
         </div>
       )}
     </div>
+  );
+}
+
+export function LibraryShell(props: React.ComponentProps<typeof LibraryShellInner>) {
+  return (
+    <DiscoverProvider>
+      <LibraryShellInner {...props} />
+    </DiscoverProvider>
   );
 }

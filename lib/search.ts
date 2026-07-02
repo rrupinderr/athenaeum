@@ -9,7 +9,7 @@ export interface SearchHit {
   item: MediaTitle | Book;
 }
 
-function haystackMedia(t: MediaTitle): string {
+export function haystackMedia(t: MediaTitle): string {
   return [
     t.title,
     t.folder_name,
@@ -50,6 +50,20 @@ export function collectBooks(library: LibraryData): Book[] {
     out.push(...(library.books.authors[key].books || []));
   }
   return out;
+}
+
+/** Filter sidebar bucket labels (director names, genre names, etc.) by substring. */
+/** Substring filter for main title grids while typing (no minimum length). */
+export function filterMediaByQuery(titles: MediaTitle[], query: string): MediaTitle[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return titles;
+  return titles.filter((t) => haystackMedia(t).includes(q));
+}
+
+export function filterSidebarLabels(items: string[], query: string): string[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return items;
+  return items.filter((label) => label.toLowerCase().includes(q));
 }
 
 export function searchMedia(library: LibraryData, query: string): SearchHit[] {

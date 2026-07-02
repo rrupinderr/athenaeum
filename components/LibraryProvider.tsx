@@ -28,6 +28,7 @@ interface LibraryContextValue {
   bookmarks: Record<string, BookBookmark[]>;
   subtitleOverrides: Record<string, SubtitleInfo>;
   refreshLibrary: () => Promise<void>;
+  deleteMedia: (id: string, episodePaths?: string[]) => Promise<{ ok: boolean; error?: string }>;
   toggleWatched: (id: string) => Promise<void>;
   toggleFavorite: (id: string) => Promise<void>;
   setSubtitleOverride: (id: string, info: SubtitleInfo) => void;
@@ -84,6 +85,17 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
     }
   }, [loadState]);
 
+  const deleteMediaFn = useCallback(async (id: string, episodePaths: string[] = []) => {
+    const res = await fetch("/api/media/delete", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, episode_paths: episodePaths }),
+    });
+    const data = await res.json();
+    if (!res.ok) return { ok: false, error: data.error || "Delete failed" };
+    return { ok: true };
+  }, []);
+
   useEffect(() => {
     refreshLibrary();
   }, [refreshLibrary]);
@@ -131,6 +143,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       bookmarks,
       subtitleOverrides,
       refreshLibrary,
+      deleteMedia: deleteMediaFn,
       toggleWatched,
       toggleFavorite,
       setSubtitleOverride,
@@ -149,6 +162,7 @@ export function LibraryProvider({ children }: { children: ReactNode }) {
       bookmarks,
       subtitleOverrides,
       refreshLibrary,
+      deleteMediaFn,
       toggleWatched,
       toggleFavorite,
       setSubtitleOverride,
@@ -185,4 +199,18 @@ export async function explorePath(path: string): Promise<void> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ path }),
   });
+}
+
+export async function deleteMedia(
+  id: string,
+  episodePaths: string[] = []
+): Promise<{ ok: boolean; error?: string }> {
+  const res = await fetch("/api/media/delete", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id, episode_paths: episodePaths }),
+  });
+  const data = await res.json();
+  if (!res.ok) return { ok: false, error: data.error || "Delete failed" };
+  return { ok: true };
 }
